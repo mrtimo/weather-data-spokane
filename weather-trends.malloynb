@@ -1,0 +1,65 @@
+>>>malloy
+source: GEGweather is duckdb.table('./spokane-temp-1.csv') extend {
+    rename: day1 is `Date`
+    measure: 
+    snow_days is count() {where: Snowfall > 0.01}
+    snow_storm_days is count() {where: Snowfall > 4}
+    rain_days is count() {where: Precipitation > .01  }
+    very_hot_days is count() {where: MaxTemperature > 97  }
+    very_cold_days is count() {where: MaxTemperature < 15  }
+    days_w_snow_on_ground is count() {where: SnowDepth > 0.01  }
+    dimension:
+    date_day is day_of_year(day1)
+}
+>>>malloy
+# line_chart
+run: GEGweather -> {
+    group_by: day1.month
+    --aggregate: average(MaxTemperature)
+}
+>>>malloy
+# line_chart
+run: GEGweather -> {
+    group_by: day1.year
+    aggregate: very_cold_days
+    limit: 10000000
+}
+>>>malloy
+# line_chart
+run: GEGweather -> {
+    group_by: day1.year
+    aggregate: days_w_snow_on_ground
+    --limit: 10000000
+}
+>>>malloy
+  run: GEGweather -> {
+    select: *
+  calculate: snow_island is pick 1 when lag(SnowDepth) > 0
+  else null
+  }
+ -- -> {
+    --select: *
+    --calculate: snow_island_run is pick 1+snow_island when lag(SnowDepth) > 0
+  --else null
+  --aggregate: sum(snow_island) when 
+ -- }
+
+  
+  
+>>>malloy
+ run: GEGweather -> {
+    select: *
+  --where: SnowDepth > 0
+  calculate: row is row_number()
+  snow_island is pick 1 when lag(SnowDepth) > 0
+  else null
+  order_by: day1
+  } -> {
+    select: *
+  calculate: snow_island1 is pick 1+snow_island when lag(snow_island) = 1
+  else null
+  --group is date_day - row
+  --order_by: day1 } -> {
+  --  group_by: group
+  }
+  
