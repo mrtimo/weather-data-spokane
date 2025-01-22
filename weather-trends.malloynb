@@ -5,11 +5,12 @@ source: GEGweather is duckdb.table('./spokane-temp-1.csv') extend {
     snow_days is count() {where: Snowfall > 0.01}
     snow_storm_days is count() {where: Snowfall > 4}
     rain_days is count() {where: Precipitation > .01  }
-    very_hot_days is count() {where: MaxTemperature > 97  }
+    very_hot_days is count() {where: MaxTemperature > 101  }
     very_cold_days is count() {where: MaxTemperature < 15  }
     days_w_snow_on_ground is count() {where: SnowDepth > 0.01  }
     dimension:
     date_day is day_of_year(day1)
+    high_low_diff is MaxTemperature - MinTemperature
 }
 >>>malloy
 # line_chart
@@ -21,45 +22,48 @@ run: GEGweather -> {
 # line_chart
 run: GEGweather -> {
     group_by: day1.year
-    aggregate: very_cold_days
-    limit: 10000000
-}
->>>malloy
-# line_chart
-run: GEGweather -> {
-    group_by: day1.year
-    aggregate: days_w_snow_on_ground
+    aggregate: rain_days
     --limit: 10000000
 }
 >>>malloy
-  run: GEGweather -> {
-    select: *
-  calculate: snow_island is pick 1 when lag(SnowDepth) > 0
-  else null
-  }
- -- -> {
-    --select: *
-    --calculate: snow_island_run is pick 1+snow_island when lag(SnowDepth) > 0
-  --else null
-  --aggregate: sum(snow_island) when 
- -- }
 
-  
+
+--query: streaks is GEGweather -> {
+ -- select: *
+ -- calculate: 
+ -- snow_run is pick 1 when lag(SnowDepth) > 0
+ -- else 0
+--  no_snow_run is pick 1 when lag(SnowDepth) = 0
+--  else 0
+--  order_by: day1
+--} -> {
+--    group_by: snow_run, no_snow_run, day1, SnowDepth
+--    where: SnowDepth = 0
+ --   calculate: 
+--    consec_days_snow is pick 1 when days(lag(day1) to day1) = 1
+--  else days(lag(day1) to day1)
+--    order_by: day1
+--} -> {
+ -- group_by: day1, consec_days_snow
+ -- order_by: consec_days_snow desc
+--}
   
 >>>malloy
- run: GEGweather -> {
-    select: *
-  --where: SnowDepth > 0
-  calculate: row is row_number()
-  snow_island is pick 1 when lag(SnowDepth) > 0
-  else null
-  order_by: day1
-  } -> {
-    select: *
-  calculate: snow_island1 is pick 1+snow_island when lag(snow_island) = 1
-  else null
-  --group is date_day - row
-  --order_by: day1 } -> {
-  --  group_by: group
-  }
+
+
+query: streaks1 is GEGweather ->  {
+    group_by: day1, SnowDepth
+    where: SnowDepth = 0
+    calculate: 
+    consec_days_snow is pick 1 when days(lag(day1) to day1) = 1
+    else days(lag(day1) to day1)
+    order_by: day1
+} -> {
+  group_by: day1, consec_days_snow
+  order_by: consec_days_snow desc
+}
   
+>>>malloy
+--source: streaks1 is streaks extend {
+   -- dimension: str_start is day1 {where: streak = "True"}
+--}
